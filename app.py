@@ -78,15 +78,21 @@ def generate_question(topic, question_type):
         response.raise_for_status() 
         
         response_data = response.json()
-        response_content = response_data['candidates'][0]['content']['parts'][0]['text']
         
-        # Remove markdown formatting if present
-        if response_content.startswith("```json"):
-            response_content = response_content[7:]
-        if response_content.endswith("```"):
-            response_content = response_content[:-3]
+        if 'candidates' in response_data and len(response_data['candidates']) > 0:
+            response_content = response_data['candidates'][0]['content']['parts'][0]['text']
             
-        return json.loads(response_content)
+            # Remove markdown formatting if present
+            if response_content.startswith("```json"):
+                response_content = response_content.strip('`json').strip()
+            elif response_content.startswith("```"):
+                response_content = response_content.strip('`').strip()
+            
+            return json.loads(response_content)
+        else:
+            st.error("API response was not in a valid format.")
+            st.markdown(f"Raw data:\n```\n{response.text}\n```")
+            return None
         
     except requests.exceptions.RequestException as e:
         st.error(f"An error occurred during the API call: {e}")

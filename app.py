@@ -82,11 +82,11 @@ def generate_question(topic, question_type):
         if 'candidates' in response_data and len(response_data['candidates']) > 0:
             response_content = response_data['candidates'][0]['content']['parts'][0]['text']
             
-            # Remove markdown formatting if present
-            if response_content.startswith("```json"):
-                response_content = response_content.strip('`json').strip()
-            elif response_content.startswith("```"):
-                response_content = response_content.strip('`').strip()
+            # Remove markdown formatting more robustly
+            if response_content.strip().startswith("```json"):
+                response_content = response_content.strip()[len("```json"):].strip()
+            if response_content.strip().endswith("```"):
+                response_content = response_content.strip()[:-len("```")].strip()
             
             return json.loads(response_content)
         else:

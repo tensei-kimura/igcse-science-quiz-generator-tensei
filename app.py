@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional
 
 # --- Configuration Constants ---
 BASE_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/"
-MODEL_NAME = "gemini-1.5-pro" # Define the model name separately for clarity
+MODEL_NAME = "gemini-2.5-flash" # Define the model name separately for clarity
 
 # --- Page configuration ---
 st.set_page_config(
@@ -181,3 +181,4 @@ if st.session_state["question_sets"]:
 
 else:
     st.info("Use the sidebar to select your subject and topic, then click 'Generate Questions' to begin!")
+

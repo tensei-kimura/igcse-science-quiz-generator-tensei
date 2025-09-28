@@ -34,7 +34,7 @@ with st.sidebar:
 
 # --- API 呼び出し関数 ---
 @st.cache_data(show_spinner="Generating questions... 🤔")
-def generate_questions(prompt_text: str, max_tokens: int = 1500):
+def generate_questions(prompt_text: str, max_tokens: int = 1000):
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -105,4 +105,5 @@ if st.session_state["question_sets"]:
                     st.markdown(f"**📝 Model Answer:** {q.get('model_answer', 'N/A')}")
 else:
     st.info("Use the sidebar to select your subject and topic, then click 'Generate Questions'.")
+
 

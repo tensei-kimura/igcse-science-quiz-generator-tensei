@@ -3,9 +3,10 @@ import requests
 import json
 from typing import List, Dict, Any, Optional
 
-# --- Configuration Constants ---
-BASE_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/"
-MODEL_NAME = "gemini-2.5-pro"  # 最新で存在するモデルに変更
+# --- Configuration ---
+MODEL_NAME = "gemini-2.5-pro"
+API_KEY = st.secrets["GEMINI_API_KEY"]
+API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateText?key={API_KEY}"
 
 # --- Page configuration ---
 st.set_page_config(
@@ -14,96 +15,44 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- API Key Check ---
-try:
-    API_KEY = st.secrets["GEMINI_API_KEY"]
-except KeyError:
-    st.error("API key not found. Please check your `.streamlit/secrets.toml` file. "
-             "It should contain a key named `GEMINI_API_KEY`.")
-    st.stop()
-
-# --- API call function ---
+# --- API Call Function ---
 @st.cache_data(show_spinner="Generating questions... 🤔")
-def generate_questions(
-    topic: str,
-    question_type: str,
-    num_questions: int
-) -> Optional[List[Dict[str, Any]]]:
+def generate_questions(prompt_text: str, max_output_tokens: int = 1024) -> Optional[List[Dict[str, Any]]]:
     """
-    Calls the Gemini API to generate multiple questions based on the specified topic and question type.
+    Calls Gemini API to generate questions from a prompt.
     """
-    
-    # 1. Construct the complete URL
-    full_api_url = f"{BASE_API_URL}{MODEL_NAME}:generateContent?key={API_KEY}"
-
-    # 2. Define the prompt based on question type
-    if question_type == "Multiple Choice":
-        prompt = f"""
-        You are an IGCSE Science educator.
-        Create {num_questions} unique multiple-choice questions on the topic of '{topic}' at the IGCSE level.
-
-        For each question include:
-        - "question": the question text
-        - "options": list of 4 options (A, B, C, D)
-        - "answer": the correct option letter
-        - "explanation": a concise explanation
-
-        Return the output strictly as a JSON array of objects. Do not include any surrounding markdown fences or prose.
-        """
-    else:  # Short Answer
-        prompt = f"""
-        You are an IGCSE Science educator.
-        Create {num_questions} unique short-answer questions on the topic of '{topic}' at the IGCSE level.
-
-        For each question include:
-        - "question": the question text
-        - "model_answer": a comprehensive model answer suitable for an IGCSE grading scheme.
-
-        Return the output strictly as a JSON array of objects. Do not include any surrounding markdown fences or prose.
-        """
-
-    headers = {"Content-Type": "application/json"}
-    
-    # 3. Correct payload format for Gemini API
     payload = {
-        "contents": [{"text": prompt}],
-        "generationConfig": {
-            "temperature": 0.9,
-            "topP": 0.9,
-            "maxOutputTokens": 2048
-        }
+        "prompt": prompt_text,
+        "temperature": 0.7,
+        "candidate_count": 1,
+        "max_output_tokens": max_output_tokens
     }
 
+    headers = {"Content-Type": "application/json"}
+
     try:
-        # 4. Make the API request
-        response = requests.post(full_api_url, headers=headers, data=json.dumps(payload), timeout=90)
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=90)
         response.raise_for_status()
-        response_data = response.json()
+        data = response.json()
 
-        # 5. Extract content and parse JSON
-        if "candidates" in response_data and len(response_data["candidates"]) > 0:
-            response_content = response_data["candidates"][0]["content"]["parts"][0]["text"]
-
-            # Remove markdown fences if any
-            response_content = response_content.strip()
-            if response_content.startswith("```json"):
-                response_content = response_content[len("```json"):].strip()
-            if response_content.endswith("```"):
-                response_content = response_content[:-len("```")].strip()
-
-            return json.loads(response_content)
+        # Gemini APIの返却形式は text か、候補を確認
+        if "candidates" in data and len(data["candidates"]) > 0:
+            text_output = data["candidates"][0]["output"] if "output" in data["candidates"][0] else data["candidates"][0].get("content", "")
+        elif "output" in data:
+            text_output = data["output"]
         else:
-            st.error("API call succeeded but returned no valid content.")
-            st.markdown(f"Raw response:\n```json\n{json.dumps(response_data, indent=2)}\n```")
+            text_output = json.dumps(data)
+
+        # JSON形式で返すことを想定
+        try:
+            return json.loads(text_output)
+        except json.JSONDecodeError:
+            st.warning("APIの出力をJSONに変換できませんでした。生データを表示します。")
+            st.text(text_output)
             return None
 
     except requests.exceptions.RequestException as e:
-        st.error(f"An HTTP error occurred during the API call: {e}")
-        st.info("💡 Make sure your API Key is correct and the model exists.")
-        return None
-    except (json.JSONDecodeError, KeyError) as e:
-        st.error(f"Could not parse JSON response from the model: {e}")
-        st.markdown(f"Raw data:\n```\n{response.text}\n```")
+        st.error(f"HTTP Error: {e}")
         return None
 
 # --- Session State ---
@@ -121,6 +70,7 @@ with st.sidebar:
         "Chemistry": ["The Periodic Table", "Chemical Reactions", "Acids and Bases", "Organic Chemistry"],
         "Physics": ["Forces and Motion", "Electric Circuits", "Waves", "Energy", "Thermal Physics"]
     }
+
     selected_subject = st.selectbox("Select a subject", list(topics.keys()))
     selected_topic = st.selectbox("Select a topic", topics.get(selected_subject, []))
     question_type = st.radio("Select question type", ["Multiple Choice", "Short Answer"])
@@ -128,8 +78,30 @@ with st.sidebar:
 
 # --- Generate Questions ---
 if st.button("Generate Questions", type="primary"):
-    generate_questions.clear()  # clear cache to refresh questions
-    questions = generate_questions(f"{selected_subject}: {selected_topic}", question_type, num_questions)
+    generate_questions.clear()  # clear cache
+    prompt = ""
+    if question_type == "Multiple Choice":
+        prompt = f"""
+        You are an IGCSE Science educator.
+        Generate {num_questions} unique multiple-choice questions on the topic '{selected_subject}: {selected_topic}'.
+        Include for each:
+        - question
+        - options: A, B, C, D
+        - answer
+        - explanation
+        Return strictly as JSON array.
+        """
+    else:
+        prompt = f"""
+        You are an IGCSE Science educator.
+        Generate {num_questions} unique short-answer questions on the topic '{selected_subject}: {selected_topic}'.
+        Include for each:
+        - question
+        - model_answer
+        Return strictly as JSON array.
+        """
+
+    questions = generate_questions(prompt)
     if questions:
         st.session_state["question_sets"].insert(0, {
             "subject": selected_subject,
@@ -146,13 +118,13 @@ if st.session_state["question_sets"]:
         st.subheader(f"📚 Set {set_idx} - {qset['subject']}: {qset['topic']} ({qset['type']})")
         for idx, q in enumerate(qset["questions"], start=1):
             with st.expander(f"❓ Question {idx}"):
-                st.markdown(f"**Question:** {q['question']}")
+                st.markdown(f"**Question:** {q.get('question', 'N/A')}")
                 if qset["type"] == "Multiple Choice":
                     for opt in q.get("options", []):
                         st.write(opt)
                     st.markdown(f"**✅ Answer:** {q.get('answer', 'N/A')}")
-                    st.markdown(f"**🧠 Explanation:** {q.get('explanation', 'No explanation provided.')}")
+                    st.markdown(f"**🧠 Explanation:** {q.get('explanation', 'N/A')}")
                 else:
-                    st.markdown(f"**📝 Model Answer:** {q.get('model_answer', 'No model answer provided.')}")
+                    st.markdown(f"**📝 Model Answer:** {q.get('model_answer', 'N/A')}")
 else:
     st.info("Use the sidebar to select your subject and topic, then click 'Generate Questions' to begin!")

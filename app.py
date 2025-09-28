@@ -4,10 +4,8 @@ import json
 from typing import List, Dict, Any, Optional
 
 # --- Configuration Constants ---
-# Gemini APIのベースURL
 BASE_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/"
-# 使用するモデル名
-MODEL_NAME = "gemini-1.5-pro" 
+MODEL_NAME = "gemini-1.5-pro" # Define the model name separately for clarity
 
 # --- Page configuration ---
 st.set_page_config(
@@ -18,7 +16,6 @@ st.set_page_config(
 
 # --- API Key Check ---
 try:
-    # Streamlit secretsからAPIキーを取得
     API_KEY = st.secrets["GEMINI_API_KEY"]
 except KeyError:
     st.error("API key not found. Please check your `.streamlit/secrets.toml` file. "
@@ -67,17 +64,15 @@ def generate_questions(
 
     headers = {"Content-Type": "application/json"}
     
-    # 3. Define the payload
-    # NOTE: 以前のエラーを解消するため、'generationConfig'を'config'に修正済み
+    # 3. Define the payload - ***CORRECTED FOR 400 ERROR***
     payload = {
         "contents": [
             {"parts": [{"text": prompt}]}
         ],
-        "config": { 
-            "temperature": 0.9,
-            "topP": 0.9,
-            "maxOutputTokens": 2048
-        }
+        # API parameters are placed at the root level alongside 'contents'
+        "temperature": 0.9,
+        "topP": 0.9,
+        "maxOutputTokens": 2048
     }
 
     try:
@@ -93,7 +88,7 @@ def generate_questions(
         if "candidates" in response_data and len(response_data["candidates"]) > 0:
             response_content = response_data["candidates"][0]["content"]["parts"][0]["text"]
 
-            # Remove markdown fences as a robust fallback
+            # Robust cleanup for markdown fences
             if response_content.strip().startswith("```json"):
                 response_content = response_content.strip()[len("```json"):].strip()
             if response_content.strip().endswith("```"):
@@ -107,9 +102,8 @@ def generate_questions(
             return None
 
     except requests.exceptions.RequestException as e:
-        # Handles 404, 403, timeouts, etc.
         st.error(f"An **HTTP Error** occurred during the API call: {e}")
-        st.info("💡 **Troubleshooting Tip:** A **404 Client Error** often means the `MODEL_NAME` (`gemini-1.5-pro`) is incorrect or the `BASE_API_URL` is wrong. For a **400 Bad Request**, check the request JSON format (e.g., the `config` key)!")
+        st.info("💡 **Troubleshooting Tip:** For a **400 Bad Request**, check the request JSON payload structure. For other errors, ensure the API Key is valid and the model is correct.")
         return None
     except (json.JSONDecodeError, KeyError) as e:
         st.error(f"Could not parse the JSON response from the model: {e}")

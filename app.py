@@ -11,7 +11,7 @@ st.set_page_config(
 
 # --- Retrieve API info from Streamlit secrets ---
 try:
-    API_KEY = st.secrets["GEMINI_API_KEY"]　
+    API_KEY = st.secrets["GEMINI_API_KEY"]
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key="
 except KeyError:
     st.error("API key not found. Please check your `.streamlit/secrets.toml` file.")
@@ -158,6 +158,7 @@ for set_idx, qset in enumerate(st.session_state["question_sets"], start=1):
                 st.markdown(f"**🧠 Explanation:** {q['explanation']}")
             else:
                 st.markdown(f"**📝 Model Answer:** {q['model_answer']}")
+
 
 
 

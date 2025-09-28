@@ -4,9 +4,10 @@ import json
 from typing import List, Dict, Any, Optional
 
 # --- Configuration Constants ---
-# Use the correct, clean base URL for the API
+# Gemini APIのベースURL
 BASE_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/"
-MODEL_NAME = "gemini-1.5-pro" # Define the model name separately for clarity
+# 使用するモデル名
+MODEL_NAME = "gemini-1.5-pro" 
 
 # --- Page configuration ---
 st.set_page_config(
@@ -15,8 +16,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- API Key Check (Should happen before first function call) ---
+# --- API Key Check ---
 try:
+    # Streamlit secretsからAPIキーを取得
     API_KEY = st.secrets["GEMINI_API_KEY"]
 except KeyError:
     st.error("API key not found. Please check your `.streamlit/secrets.toml` file. "
@@ -35,7 +37,6 @@ def generate_questions(
     """
     
     # 1. Construct the complete URL
-    # The URL structure is: BASE_API_URL + MODEL_NAME + ":generateContent" + "?key=" + API_KEY
     full_api_url = f"{BASE_API_URL}{MODEL_NAME}:generateContent?key={API_KEY}"
 
     # 2. Define the prompt based on question type
@@ -67,11 +68,12 @@ def generate_questions(
     headers = {"Content-Type": "application/json"}
     
     # 3. Define the payload
+    # NOTE: 以前のエラーを解消するため、'generationConfig'を'config'に修正済み
     payload = {
         "contents": [
             {"parts": [{"text": prompt}]}
         ],
-        "config": { # Use "config" for general settings in the request body
+        "config": { 
             "temperature": 0.9,
             "topP": 0.9,
             "maxOutputTokens": 2048
@@ -91,8 +93,7 @@ def generate_questions(
         if "candidates" in response_data and len(response_data["candidates"]) > 0:
             response_content = response_data["candidates"][0]["content"]["parts"][0]["text"]
 
-            # Note: The prompt instructed the model NOT to use markdown fences, 
-            # but we keep the cleanup logic as a robust fallback.
+            # Remove markdown fences as a robust fallback
             if response_content.strip().startswith("```json"):
                 response_content = response_content.strip()[len("```json"):].strip()
             if response_content.strip().endswith("```"):
@@ -101,7 +102,6 @@ def generate_questions(
             return json.loads(response_content)
         else:
             # Handle cases where the API call succeeds but returns no content 
-            # (e.g., safety block, empty response)
             st.error("API call succeeded but returned no valid content. The response might have been blocked due to safety settings or was empty.")
             st.markdown(f"Raw response:\n```json\n{json.dumps(response_data, indent=2)}\n```")
             return None
@@ -109,7 +109,7 @@ def generate_questions(
     except requests.exceptions.RequestException as e:
         # Handles 404, 403, timeouts, etc.
         st.error(f"An **HTTP Error** occurred during the API call: {e}")
-        st.info("💡 **Troubleshooting Tip:** A **404 Client Error** often means the `MODEL_NAME` (`gemini-1.5-pro`) is incorrect or the `BASE_API_URL` is wrong. Double-check the constants at the top of the file!")
+        st.info("💡 **Troubleshooting Tip:** A **404 Client Error** often means the `MODEL_NAME` (`gemini-1.5-pro`) is incorrect or the `BASE_API_URL` is wrong. For a **400 Bad Request**, check the request JSON format (e.g., the `config` key)!")
         return None
     except (json.JSONDecodeError, KeyError) as e:
         st.error(f"Could not parse the JSON response from the model: {e}")
@@ -149,7 +149,8 @@ if st.button("Generate Questions", type="primary"):
     questions = generate_questions(f"{selected_subject}: {selected_topic}", question_type, num_questions)
 
     if questions:
-        st.session_state["question_sets"].insert(0, { # Use insert(0) to put new set at the top
+        # Use insert(0) to put new set at the top
+        st.session_state["question_sets"].insert(0, { 
             "subject": selected_subject,
             "topic": selected_topic,
             "type": question_type,
@@ -186,8 +187,3 @@ if st.session_state["question_sets"]:
 
 else:
     st.info("Use the sidebar to select your subject and topic, then click 'Generate Questions' to begin!")
-
-
-
-
-

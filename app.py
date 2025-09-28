@@ -17,7 +17,7 @@ if "question_sets" not in st.session_state:
     st.session_state["question_sets"] = []
 
 # --- UI ---
-st.title("🤖 IGCSE Science Quiz Generator (GPT-4 / OpenAI 1.x)")
+st.title("🤖 IGCSE Science Quiz Generator (GPT-3.5 Turbo)")
 st.markdown("Generate practice questions for IGCSE Science (Biology, Chemistry, Physics).")
 
 with st.sidebar:
@@ -30,14 +30,14 @@ with st.sidebar:
     selected_subject = st.selectbox("Select a subject", list(topics.keys()))
     selected_topic = st.selectbox("Select a topic", topics.get(selected_subject, []))
     question_type = st.radio("Select question type", ["Multiple Choice", "Short Answer"])
-    num_questions = st.slider("Number of questions to generate", 5, 15, 10)
+    num_questions = st.slider("Number of questions to generate", 3, 10, 5)  # 少なめで無料クレジット節約
 
 # --- API 呼び出し関数 ---
 @st.cache_data(show_spinner="Generating questions... 🤔")
 def generate_questions(prompt_text: str, max_tokens: int = 1000):
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo",  # 低コストで無料クレジットでも動作
             messages=[
                 {"role": "system", "content": "You are an IGCSE Science educator."},
                 {"role": "user", "content": prompt_text}
@@ -105,5 +105,3 @@ if st.session_state["question_sets"]:
                     st.markdown(f"**📝 Model Answer:** {q.get('model_answer', 'N/A')}")
 else:
     st.info("Use the sidebar to select your subject and topic, then click 'Generate Questions'.")
-
-

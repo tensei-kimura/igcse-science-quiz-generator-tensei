@@ -2,10 +2,10 @@ import streamlit as st
 import openai
 import json
 
-# --- OpenAI API Key ---
-openai.api_key = st.secrets["OPENAI_API_KEY"]  # secrets.toml に設定
+# --- OpenAI API ---
+client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# --- ページ設定 ---
+# --- Streamlit ページ設定 ---
 st.set_page_config(
     page_title="IGCSE Science Quiz Generator",
     page_icon="🤖",
@@ -17,7 +17,7 @@ if "question_sets" not in st.session_state:
     st.session_state["question_sets"] = []
 
 # --- UI ---
-st.title("🤖 IGCSE Science Quiz Generator (GPT-4)")
+st.title("🤖 IGCSE Science Quiz Generator (GPT-4 / OpenAI 1.x)")
 st.markdown("Generate practice questions for IGCSE Science (Biology, Chemistry, Physics).")
 
 with st.sidebar:
@@ -32,17 +32,20 @@ with st.sidebar:
     question_type = st.radio("Select question type", ["Multiple Choice", "Short Answer"])
     num_questions = st.slider("Number of questions to generate", 5, 15, 10)
 
-# --- API呼び出し関数 ---
+# --- API 呼び出し関数 ---
 @st.cache_data(show_spinner="Generating questions... 🤔")
 def generate_questions(prompt_text: str, max_tokens: int = 1500):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
-            messages=[{"role": "user", "content": prompt_text}],
+            messages=[
+                {"role": "system", "content": "You are an IGCSE Science educator."},
+                {"role": "user", "content": prompt_text}
+            ],
             temperature=0.7,
             max_tokens=max_tokens
         )
-        return response['choices'][0]['message']['content']
+        return response.choices[0].message.content
     except Exception as e:
         st.error(f"Error calling GPT API: {e}")
         return None
@@ -51,26 +54,23 @@ def generate_questions(prompt_text: str, max_tokens: int = 1500):
 if st.button("Generate Questions"):
     generate_questions.clear()  # キャッシュクリア
 
-    prompt = ""
     if question_type == "Multiple Choice":
         prompt = f"""
-        You are an IGCSE Science educator.
         Generate {num_questions} unique multiple-choice questions on the topic '{selected_subject}: {selected_topic}'.
         Include for each question:
         - "question": the question text
         - "options": list of 4 options A-D
         - "answer": the correct option letter
         - "explanation": a concise explanation
-        Return strictly as a JSON array of objects, without any extra text.
+        Return strictly as a JSON array of objects without any extra text.
         """
     else:
         prompt = f"""
-        You are an IGCSE Science educator.
         Generate {num_questions} unique short-answer questions on the topic '{selected_subject}: {selected_topic}'.
         Include for each question:
         - "question": the question text
         - "model_answer": a comprehensive model answer
-        Return strictly as a JSON array of objects, without any extra text.
+        Return strictly as a JSON array of objects without any extra text.
         """
 
     result_text = generate_questions(prompt)
@@ -105,4 +105,3 @@ if st.session_state["question_sets"]:
                     st.markdown(f"**📝 Model Answer:** {q.get('model_answer', 'N/A')}")
 else:
     st.info("Use the sidebar to select your subject and topic, then click 'Generate Questions'.")
-

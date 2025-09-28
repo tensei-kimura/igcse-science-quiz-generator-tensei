@@ -4,9 +4,9 @@ import json
 from typing import List, Dict, Any, Optional
 
 # --- Configuration ---
-MODEL_NAME = "gemini-2.5-pro"
+MODEL_NAME = "gemini-2.5-flash"
 API_KEY = st.secrets["GEMINI_API_KEY"]
-API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateText?key={API_KEY}"
+API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
 
 # --- Page configuration ---
 st.set_page_config(
@@ -17,15 +17,21 @@ st.set_page_config(
 
 # --- API Call Function ---
 @st.cache_data(show_spinner="Generating questions... 🤔")
-def generate_questions(prompt_text: str, max_output_tokens: int = 1024) -> Optional[List[Dict[str, Any]]]:
+def generate_questions(prompt_text: str, max_output_tokens: int = 2048) -> Optional[List[Dict[str, Any]]]:
     """
-    Calls Gemini API to generate questions from a prompt.
+    Calls Gemini 2.5-flash API to generate questions from a prompt.
     """
     payload = {
-        "prompt": prompt_text,
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt_text}
+                ]
+            }
+        ],
         "temperature": 0.7,
-        "candidate_count": 1,
-        "max_output_tokens": max_output_tokens
+        "topP": 0.9,
+        "maxOutputTokens": max_output_tokens
     }
 
     headers = {"Content-Type": "application/json"}
@@ -35,20 +41,25 @@ def generate_questions(prompt_text: str, max_output_tokens: int = 1024) -> Optio
         response.raise_for_status()
         data = response.json()
 
-        # Gemini APIの返却形式は text か、候補を確認
+        # candidates からテキストを取得
         if "candidates" in data and len(data["candidates"]) > 0:
-            text_output = data["candidates"][0]["output"] if "output" in data["candidates"][0] else data["candidates"][0].get("content", "")
-        elif "output" in data:
-            text_output = data["output"]
-        else:
-            text_output = json.dumps(data)
+            response_content = data["candidates"][0]["content"]["parts"][0]["text"]
 
-        # JSON形式で返すことを想定
-        try:
-            return json.loads(text_output)
-        except json.JSONDecodeError:
-            st.warning("APIの出力をJSONに変換できませんでした。生データを表示します。")
-            st.text(text_output)
+            # JSON出力の前処理（Markdown フェンス削除）
+            if response_content.strip().startswith("```json"):
+                response_content = response_content.strip()[len("```json"):].strip()
+            if response_content.strip().endswith("```"):
+                response_content = response_content.strip()[:-len("```")].strip()
+
+            try:
+                return json.loads(response_content)
+            except json.JSONDecodeError:
+                st.warning("API出力をJSONに変換できませんでした。生データを表示します。")
+                st.text(response_content)
+                return None
+        else:
+            st.error("APIから有効なコンテンツが返ってきませんでした。")
+            st.text(json.dumps(data, indent=2))
             return None
 
     except requests.exceptions.RequestException as e:
@@ -60,7 +71,7 @@ if "question_sets" not in st.session_state:
     st.session_state["question_sets"] = []
 
 # --- UI ---
-st.title("🤖 IGCSE Science Quiz Generator")
+st.title("🤖 IGCSE Science Quiz Generator (Gemini 2.5-flash)")
 st.markdown("Generate practice questions for IGCSE Science (Biology, Chemistry, Physics).")
 
 with st.sidebar:

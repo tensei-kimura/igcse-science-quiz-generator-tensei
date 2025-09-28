@@ -1,25 +1,24 @@
 import streamlit as st
-import requests
 import json
-from typing import List, Dict, Any, Optional
+import requests
 
-# --- Configuration ---
+# --- 設定 ---
 MODEL_NAME = "gemini-2.5-flash"
 API_KEY = st.secrets["GEMINI_API_KEY"]
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
 
-# --- Page configuration ---
+# --- ページ設定 ---
 st.set_page_config(
-    page_title="IGCSE Science Quiz Generator",
+    page_title="IGCSE サイエンス クイズジェネレーター",
     page_icon="🤖",
     layout="wide"
 )
 
-# --- API Call Function ---
-@st.cache_data(show_spinner="Generating questions... 🤔")
-def generate_questions(prompt_text: str, max_output_tokens: int = 2048) -> Optional[List[Dict[str, Any]]]:
+# --- API 呼び出し関数 ---
+@st.cache_data(show_spinner="クイズを生成中... 🤔")
+def generate_questions(prompt_text: str, max_output_tokens: int = 2048):
     """
-    Calls Gemini 2.5-flash API to generate questions from a prompt.
+    Gemini 2.5‑flash API を呼び出し、プロンプトからクイズを生成する関数。
     """
     payload = {
         "contents": [
@@ -66,50 +65,50 @@ def generate_questions(prompt_text: str, max_output_tokens: int = 2048) -> Optio
         st.error(f"HTTP Error: {e}")
         return None
 
-# --- Session State ---
+# --- セッション状態 ---
 if "question_sets" not in st.session_state:
     st.session_state["question_sets"] = []
 
 # --- UI ---
-st.title("🤖 IGCSE Science Quiz Generator (Gemini 2.5-flash)")
-st.markdown("Generate practice questions for IGCSE Science (Biology, Chemistry, Physics).")
+st.title("🤖 IGCSE サイエンス クイズジェネレーター (Gemini 2.5‑flash)")
+st.markdown("IGCSE サイエンス（生物、化学、物理）の練習問題を生成します。")
 
 with st.sidebar:
-    st.header("Settings")
+    st.header("設定")
     topics = {
-        "Biology": ["Cells", "Digestion", "Genetics", "Respiration", "Ecology"],
-        "Chemistry": ["The Periodic Table", "Chemical Reactions", "Acids and Bases", "Organic Chemistry"],
-        "Physics": ["Forces and Motion", "Electric Circuits", "Waves", "Energy", "Thermal Physics"]
+        "生物学": ["細胞", "消化", "遺伝学", "呼吸", "生態学"],
+        "化学": ["周期表", "化学反応", "酸と塩基", "有機化学"],
+        "物理学": ["力と運動", "電気回路", "波", "エネルギー", "熱物理学"]
     }
 
-    selected_subject = st.selectbox("Select a subject", list(topics.keys()))
-    selected_topic = st.selectbox("Select a topic", topics.get(selected_subject, []))
-    question_type = st.radio("Select question type", ["Multiple Choice", "Short Answer"])
-    num_questions = st.slider("How many questions to generate?", 5, 15, 10)
+    selected_subject = st.selectbox("教科を選択", list(topics.keys()))
+    selected_topic = st.selectbox("トピックを選択", topics.get(selected_subject, []))
+    question_type = st.radio("問題の種類を選択", ["選択式", "記述式"])
+    num_questions = st.slider("生成する問題数", 5, 15, 10)
 
-# --- Generate Questions ---
-if st.button("Generate Questions", type="primary"):
-    generate_questions.clear()  # clear cache
+# --- 問題生成 ---
+if st.button("問題を生成", type="primary"):
+    generate_questions.clear()  # キャッシュをクリア
     prompt = ""
-    if question_type == "Multiple Choice":
+    if question_type == "選択式":
         prompt = f"""
-        You are an IGCSE Science educator.
-        Generate {num_questions} unique multiple-choice questions on the topic '{selected_subject}: {selected_topic}'.
-        Include for each:
-        - question
-        - options: A, B, C, D
-        - answer
-        - explanation
-        Return strictly as JSON array.
+        あなたは IGCSE サイエンスの教育者です。
+        トピック「{selected_subject}: {selected_topic}」に関する {num_questions} 問のユニークな選択式問題を生成してください。
+        各問題には以下を含めてください：
+        - 問題文
+        - 選択肢：A, B, C, D
+        - 正解
+        - 解説
+        出力は JSON 配列形式で厳密に返してください。
         """
     else:
         prompt = f"""
-        You are an IGCSE Science educator.
-        Generate {num_questions} unique short-answer questions on the topic '{selected_subject}: {selected_topic}'.
-        Include for each:
-        - question
-        - model_answer
-        Return strictly as JSON array.
+        あなたは IGCSE サイエンスの教育者です。
+        トピック「{selected_subject}: {selected_topic}」に関する {num_questions} 問のユニークな記述式問題を生成してください。
+        各問題には以下を含めてください：
+        - 問題文
+        - 模範解答
+        出力は JSON 配列形式で厳密に返してください。
         """
 
     questions = generate_questions(prompt)
@@ -121,21 +120,21 @@ if st.button("Generate Questions", type="primary"):
             "questions": questions
         })
 
-# --- Display Generated Sets ---
+# --- 生成されたセットの表示 ---
 if st.session_state["question_sets"]:
-    st.markdown("## Generated Quizzes")
+    st.markdown("## 生成されたクイズ")
     st.markdown("---")
     for set_idx, qset in enumerate(st.session_state["question_sets"], start=1):
-        st.subheader(f"📚 Set {set_idx} - {qset['subject']}: {qset['topic']} ({qset['type']})")
+        st.subheader(f"📚 セット {set_idx} - {qset['subject']}: {qset['topic']} ({qset['type']})")
         for idx, q in enumerate(qset["questions"], start=1):
-            with st.expander(f"❓ Question {idx}"):
-                st.markdown(f"**Question:** {q.get('question', 'N/A')}")
-                if qset["type"] == "Multiple Choice":
+            with st.expander(f"❓ 問題 {idx}"):
+                st.markdown(f"**問題文:** {q.get('question', 'N/A')}")
+                if qset["type"] == "選択式":
                     for opt in q.get("options", []):
                         st.write(opt)
-                    st.markdown(f"**✅ Answer:** {q.get('answer', 'N/A')}")
-                    st.markdown(f"**🧠 Explanation:** {q.get('explanation', 'N/A')}")
+                    st.markdown(f"**✅ 正解:** {q.get('answer', 'N/A')}")
+                    st.markdown(f"**🧠 解説:** {q.get('explanation', 'N/A')}")
                 else:
-                    st.markdown(f"**📝 Model Answer:** {q.get('model_answer', 'N/A')}")
+                    st.markdown(f"**📝 模範解答:** {q.get('model_answer', 'N/A')}")
 else:
-    st.info("Use the sidebar to select your subject and topic, then click 'Generate Questions' to begin!")
+    st.info("サイドバーで教科とトピックを選択し、「問題を生成」をクリックしてください。")

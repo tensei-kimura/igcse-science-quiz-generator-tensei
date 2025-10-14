@@ -18,7 +18,7 @@ if "all_generated_questions" not in st.session_state:
     st.session_state["all_generated_questions"] = set()  # 過去に生成した全問題
 
 # --- UI ---
-st.title("🤖 IGCSE Science Quiz Generator (GPT-4o-mini)")
+st.title("🤖 IGCSE Science Quiz Generator")
 st.markdown("Generate practice questions for IGCSE Science (Biology, Chemistry, Physics).")
 
 with st.sidebar:
@@ -139,3 +139,4 @@ if st.session_state["question_sets"]:
                     st.markdown(f"**📝 Model Answer:** {q.get('model_answer', 'N/A')}")
 else:
     st.info("Use the sidebar to select your subject and topic, then click 'Generate Questions'.")
+

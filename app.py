@@ -10,8 +10,12 @@ st.set_page_config(
     layout="wide"
 )
 
+# --- セッションステート初期化 ---
 if "question_sets" not in st.session_state:
     st.session_state["question_sets"] = []
+
+if "all_generated_questions" not in st.session_state:
+    st.session_state["all_generated_questions"] = set()  # 過去に生成した問題の履歴
 
 # --- UI ---
 st.title("🤖 IGCSE Science Quiz Generator (GPT-4o-mini)")
@@ -39,7 +43,7 @@ def generate_questions(prompt_text: str, max_tokens: int = 1000):
                 {"role": "system", "content": "You are an IGCSE Science educator."},
                 {"role": "user", "content": prompt_text}
             ],
-            temperature=0.7,
+            temperature=0.8,  # 少しランダム性を上げてユニーク化
             max_tokens=max_tokens
         )
         return response.choices[0].message.content
@@ -63,6 +67,7 @@ if st.button("Generate Questions"):
     if question_type == "Multiple Choice":
         prompt = f"""
         Generate {num_questions} unique multiple-choice questions on the topic '{selected_subject}: {selected_topic}'.
+        Each question must be unique. Do NOT repeat any question that has been generated before.
         Include for each question:
         - "question": the question text
         - "options": a dictionary of 4 options A-D
@@ -73,6 +78,7 @@ if st.button("Generate Questions"):
     else:
         prompt = f"""
         Generate {num_questions} unique short-answer questions on the topic '{selected_subject}: {selected_topic}'.
+        Each question must be unique. Do NOT repeat any question that has been generated before.
         Include for each question:
         - "question": the question text
         - "model_answer": a comprehensive model answer
@@ -84,21 +90,22 @@ if st.button("Generate Questions"):
         cleaned_text = clean_gpt_json(result_text)
         try:
             questions = json.loads(cleaned_text)
-            # --- 重複問題の削除 ---
-            seen = set()
+            # --- 過去の全問題と照合してユニーク化 ---
             unique_questions = []
             for q in questions:
                 q_text = q.get("question", "").strip()
-                if q_text not in seen:
-                    seen.add(q_text)
+                if q_text not in st.session_state["all_generated_questions"]:
+                    st.session_state["all_generated_questions"].add(q_text)
                     unique_questions.append(q)
-            # --- セットに追加 ---
-            st.session_state["question_sets"].insert(0, {
-                "subject": selected_subject,
-                "topic": selected_topic,
-                "type": question_type,
-                "questions": unique_questions
-            })
+            if not unique_questions:
+                st.warning("All generated questions were duplicates of previously generated ones. Try again.")
+            else:
+                st.session_state["question_sets"].insert(0, {
+                    "subject": selected_subject,
+                    "topic": selected_topic,
+                    "type": question_type,
+                    "questions": unique_questions
+                })
         except json.JSONDecodeError as e:
             st.error("Failed to parse JSON from GPT output.")
             st.text(f"GPT output:\n{result_text}")

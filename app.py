@@ -15,7 +15,7 @@ if "question_sets" not in st.session_state:
     st.session_state["question_sets"] = []
 
 if "all_generated_questions" not in st.session_state:
-    st.session_state["all_generated_questions"] = set()  # 過去に生成した問題の履歴
+    st.session_state["all_generated_questions"] = set()  # 過去に生成した全問題
 
 # --- UI ---
 st.title("🤖 IGCSE Science Quiz Generator (GPT-4o-mini)")
@@ -33,7 +33,7 @@ with st.sidebar:
     question_type = st.radio("Select question type", ["Multiple Choice", "Short Answer"])
     num_questions = st.slider("Number of questions to generate", 3, 10, 5)
 
-# --- GPT 呼び出し ---
+# --- GPT呼び出し ---
 @st.cache_data(show_spinner="Generating questions... 🤔")
 def generate_questions(prompt_text: str, max_tokens: int = 1000):
     try:
@@ -43,7 +43,7 @@ def generate_questions(prompt_text: str, max_tokens: int = 1000):
                 {"role": "system", "content": "You are an IGCSE Science educator."},
                 {"role": "user", "content": prompt_text}
             ],
-            temperature=0.8,  # 少しランダム性を上げてユニーク化
+            temperature=0.8,
             max_tokens=max_tokens
         )
         return response.choices[0].message.content
@@ -51,7 +51,7 @@ def generate_questions(prompt_text: str, max_tokens: int = 1000):
         st.error(f"Error calling GPT API: {e}")
         return None
 
-# --- GPT 出力のクリーン関数 ---
+# --- GPT出力クリーン ---
 def clean_gpt_json(raw_text: str) -> str:
     cleaned = raw_text.strip()
     if cleaned.startswith("```json"):
@@ -60,9 +60,9 @@ def clean_gpt_json(raw_text: str) -> str:
         cleaned = cleaned[:-3]
     return cleaned.strip()
 
-# --- 質問生成 ---
+# --- 質問生成ボタン ---
 if st.button("Generate Questions"):
-    generate_questions.clear()  # キャッシュクリア
+    generate_questions.clear()
 
     if question_type == "Multiple Choice":
         prompt = f"""
@@ -111,14 +111,15 @@ if st.button("Generate Questions"):
             st.text(f"GPT output:\n{result_text}")
             st.text(f"Error details: {e}")
 
-# --- セット削除ボタン ---
+# --- セット表示・削除ボタン ---
 if st.session_state["question_sets"]:
     st.markdown("## Generated Quizzes")
     st.markdown("---")
     
     for set_idx, qset in enumerate(st.session_state["question_sets"], start=1):
         st.subheader(f"📚 Set {set_idx} - {qset['subject']}: {qset['topic']} ({qset['type']})")
-        if st.button(f"Delete Set {set_idx}"):
+        # 削除ボタンにユニークキーを付ける
+        if st.button(f"Delete Set {set_idx}", key=f"delete_{set_idx}"):
             st.session_state["question_sets"].pop(set_idx-1)
             st.experimental_rerun()
         
@@ -126,12 +127,10 @@ if st.session_state["question_sets"]:
             st.markdown(f"### ❓ Question {idx}")
             st.markdown(f"**Question:** {q.get('question', 'N/A')}")
             
-            # Multiple Choiceなら選択肢を常に表示
             if qset["type"] == "Multiple Choice":
                 for key, value in q.get("options", {}).items():
                     st.write(f"{key}: {value}")
 
-            # 答えと解説だけタブに隠す
             with st.expander("Show Answer"):
                 if qset["type"] == "Multiple Choice":
                     st.markdown(f"**✅ Answer:** {q.get('answer', 'N/A')}")

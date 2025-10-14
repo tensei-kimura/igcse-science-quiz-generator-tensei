@@ -84,23 +84,37 @@ if st.button("Generate Questions"):
         cleaned_text = clean_gpt_json(result_text)
         try:
             questions = json.loads(cleaned_text)
+            # --- 重複問題の削除 ---
+            seen = set()
+            unique_questions = []
+            for q in questions:
+                q_text = q.get("question", "").strip()
+                if q_text not in seen:
+                    seen.add(q_text)
+                    unique_questions.append(q)
+            # --- セットに追加 ---
             st.session_state["question_sets"].insert(0, {
                 "subject": selected_subject,
                 "topic": selected_topic,
                 "type": question_type,
-                "questions": questions
+                "questions": unique_questions
             })
         except json.JSONDecodeError as e:
             st.error("Failed to parse JSON from GPT output.")
             st.text(f"GPT output:\n{result_text}")
             st.text(f"Error details: {e}")
 
-# --- 表示（問題と選択肢は常に表示、答えだけタブに隠す） ---
+# --- セット削除ボタン ---
 if st.session_state["question_sets"]:
     st.markdown("## Generated Quizzes")
     st.markdown("---")
+    
     for set_idx, qset in enumerate(st.session_state["question_sets"], start=1):
         st.subheader(f"📚 Set {set_idx} - {qset['subject']}: {qset['topic']} ({qset['type']})")
+        if st.button(f"Delete Set {set_idx}"):
+            st.session_state["question_sets"].pop(set_idx-1)
+            st.experimental_rerun()
+        
         for idx, q in enumerate(qset["questions"], start=1):
             st.markdown(f"### ❓ Question {idx}")
             st.markdown(f"**Question:** {q.get('question', 'N/A')}")

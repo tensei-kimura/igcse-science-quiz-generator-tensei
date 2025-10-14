@@ -95,7 +95,7 @@ if st.button("Generate Questions"):
             st.text(f"GPT output:\n{result_text}")
             st.text(f"Error details: {e}")
 
-# --- 表示（答えをタブで隠す） ---
+# --- 表示（問題と選択肢は常に表示、答えだけタブに隠す） ---
 if st.session_state["question_sets"]:
     st.markdown("## Generated Quizzes")
     st.markdown("---")
@@ -105,11 +105,14 @@ if st.session_state["question_sets"]:
             st.markdown(f"### ❓ Question {idx}")
             st.markdown(f"**Question:** {q.get('question', 'N/A')}")
             
-            # 答えと解説をタブで隠す
+            # Multiple Choiceなら選択肢を常に表示
+            if qset["type"] == "Multiple Choice":
+                for key, value in q.get("options", {}).items():
+                    st.write(f"{key}: {value}")
+
+            # 答えと解説だけタブに隠す
             with st.expander("Show Answer"):
                 if qset["type"] == "Multiple Choice":
-                    for key, value in q.get("options", {}).items():
-                        st.write(f"{key}: {value}")
                     st.markdown(f"**✅ Answer:** {q.get('answer', 'N/A')}")
                     st.markdown(f"**🧠 Explanation:** {q.get('explanation', 'N/A')}")
                 else:

@@ -49,9 +49,6 @@ def generate_questions(prompt_text: str, max_tokens: int = 1000):
 
 # --- GPT 出力のクリーン関数 ---
 def clean_gpt_json(raw_text: str) -> str:
-    """
-    GPT出力から余計な文字やMarkdownを除去して純粋なJSON文字列にする。
-    """
     cleaned = raw_text.strip()
     if cleaned.startswith("```json"):
         cleaned = cleaned[7:]
@@ -98,15 +95,18 @@ if st.button("Generate Questions"):
             st.text(f"GPT output:\n{result_text}")
             st.text(f"Error details: {e}")
 
-# --- 表示 ---
+# --- 表示（答えをタブで隠す） ---
 if st.session_state["question_sets"]:
     st.markdown("## Generated Quizzes")
     st.markdown("---")
     for set_idx, qset in enumerate(st.session_state["question_sets"], start=1):
         st.subheader(f"📚 Set {set_idx} - {qset['subject']}: {qset['topic']} ({qset['type']})")
         for idx, q in enumerate(qset["questions"], start=1):
-            with st.expander(f"❓ Question {idx}"):
-                st.markdown(f"**Question:** {q.get('question', 'N/A')}")
+            st.markdown(f"### ❓ Question {idx}")
+            st.markdown(f"**Question:** {q.get('question', 'N/A')}")
+            
+            # 答えと解説をタブで隠す
+            with st.expander("Show Answer"):
                 if qset["type"] == "Multiple Choice":
                     for key, value in q.get("options", {}).items():
                         st.write(f"{key}: {value}")

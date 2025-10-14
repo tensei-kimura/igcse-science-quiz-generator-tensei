@@ -14,7 +14,7 @@ if "question_sets" not in st.session_state:
     st.session_state["question_sets"] = []
 
 # --- UI ---
-st.title("🤖 IGCSE Science Quiz Generator (GPT-3.5 Turbo)")
+st.title("🤖 IGCSE Science Quiz Generator (GPT-4o-mini)")
 st.markdown("Generate practice questions for IGCSE Science (Biology, Chemistry, Physics).")
 
 with st.sidebar:
@@ -27,13 +27,14 @@ with st.sidebar:
     selected_subject = st.selectbox("Select a subject", list(topics.keys()))
     selected_topic = st.selectbox("Select a topic", topics.get(selected_subject, []))
     question_type = st.radio("Select question type", ["Multiple Choice", "Short Answer"])
-    num_questions = st.slider("Number of questions to generate", 3, 10, 5)  # 少なめで無料クレジット節約
+    num_questions = st.slider("Number of questions to generate", 3, 10, 5)
 
+# --- GPT 呼び出し ---
 @st.cache_data(show_spinner="Generating questions... 🤔")
 def generate_questions(prompt_text: str, max_tokens: int = 1000):
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini", 
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are an IGCSE Science educator."},
                 {"role": "user", "content": prompt_text}
@@ -46,6 +47,19 @@ def generate_questions(prompt_text: str, max_tokens: int = 1000):
         st.error(f"Error calling GPT API: {e}")
         return None
 
+# --- GPT 出力のクリーン関数 ---
+def clean_gpt_json(raw_text: str) -> str:
+    """
+    GPT出力から余計な文字やMarkdownを除去して純粋なJSON文字列にする。
+    """
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:]
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    return cleaned.strip()
+
+# --- 質問生成 ---
 if st.button("Generate Questions"):
     generate_questions.clear()  # キャッシュクリア
 
@@ -54,10 +68,10 @@ if st.button("Generate Questions"):
         Generate {num_questions} unique multiple-choice questions on the topic '{selected_subject}: {selected_topic}'.
         Include for each question:
         - "question": the question text
-        - "options": list of 4 options A-D
+        - "options": a dictionary of 4 options A-D
         - "answer": the correct option letter
         - "explanation": a concise explanation
-        Return strictly as a JSON array of objects without any extra text.
+        Return ONLY a valid JSON array. Do NOT include any explanation, markdown, or extra text.
         """
     else:
         prompt = f"""
@@ -65,23 +79,26 @@ if st.button("Generate Questions"):
         Include for each question:
         - "question": the question text
         - "model_answer": a comprehensive model answer
-        Return strictly as a JSON array of objects without any extra text.
+        Return ONLY a valid JSON array. Do NOT include any explanation, markdown, or extra text.
         """
 
     result_text = generate_questions(prompt)
     if result_text:
+        cleaned_text = clean_gpt_json(result_text)
         try:
-            questions = json.loads(result_text)
+            questions = json.loads(cleaned_text)
             st.session_state["question_sets"].insert(0, {
                 "subject": selected_subject,
                 "topic": selected_topic,
                 "type": question_type,
                 "questions": questions
             })
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             st.error("Failed to parse JSON from GPT output.")
-            st.text(result_text)
+            st.text(f"GPT output:\n{result_text}")
+            st.text(f"Error details: {e}")
 
+# --- 表示 ---
 if st.session_state["question_sets"]:
     st.markdown("## Generated Quizzes")
     st.markdown("---")
@@ -91,14 +108,11 @@ if st.session_state["question_sets"]:
             with st.expander(f"❓ Question {idx}"):
                 st.markdown(f"**Question:** {q.get('question', 'N/A')}")
                 if qset["type"] == "Multiple Choice":
-                    for opt in q.get("options", []):
-                        st.write(opt)
+                    for key, value in q.get("options", {}).items():
+                        st.write(f"{key}: {value}")
                     st.markdown(f"**✅ Answer:** {q.get('answer', 'N/A')}")
                     st.markdown(f"**🧠 Explanation:** {q.get('explanation', 'N/A')}")
                 else:
                     st.markdown(f"**📝 Model Answer:** {q.get('model_answer', 'N/A')}")
 else:
     st.info("Use the sidebar to select your subject and topic, then click 'Generate Questions'.")
-
-
-

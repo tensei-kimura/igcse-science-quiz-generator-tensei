@@ -1,10 +1,8 @@
 import streamlit as st
-import openai
 import json
+import openai
 
-# --- OpenAI API ---
 client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
 
 st.set_page_config(
     page_title="IGCSE Science Quiz Generator",
@@ -101,5 +99,6 @@ if st.session_state["question_sets"]:
                     st.markdown(f"**📝 Model Answer:** {q.get('model_answer', 'N/A')}")
 else:
     st.info("Use the sidebar to select your subject and topic, then click 'Generate Questions'.")
+
 
 

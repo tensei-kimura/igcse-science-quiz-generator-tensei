@@ -35,7 +35,7 @@ with st.sidebar:
 def generate_questions(prompt_text: str, max_tokens: int = 1000):
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo", 
+            model="gpt-4o-mini", 
             messages=[
                 {"role": "system", "content": "You are an IGCSE Science educator."},
                 {"role": "user", "content": prompt_text}
@@ -101,4 +101,5 @@ if st.session_state["question_sets"]:
                     st.markdown(f"**📝 Model Answer:** {q.get('model_answer', 'N/A')}")
 else:
     st.info("Use the sidebar to select your subject and topic, then click 'Generate Questions'.")
+
 

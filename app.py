@@ -10,14 +10,14 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- セッションステート初期化 ---
+
 if "question_sets" not in st.session_state:
     st.session_state["question_sets"] = []
 
 if "all_generated_questions" not in st.session_state:
-    st.session_state["all_generated_questions"] = set()  # 過去に生成した全問題
+    st.session_state["all_generated_questions"] = set()  
 
-# --- UI ---
+
 st.title("IGCSE QuizGen")
 st.markdown("Generate practice questions for IGCSE Science (Biology, Chemistry, Physics).")
 
@@ -33,7 +33,7 @@ with st.sidebar:
     question_type = st.radio("Select question type", ["Multiple Choice", "Short Answer"])
     num_questions = st.slider("Number of questions to generate", 3, 10, 5)
 
-# --- GPT呼び出し ---
+
 @st.cache_data(show_spinner="Generating questions... 🤔")
 def generate_questions(prompt_text: str, max_tokens: int = 1000):
     try:
@@ -51,7 +51,7 @@ def generate_questions(prompt_text: str, max_tokens: int = 1000):
         st.error(f"Error calling GPT API: {e}")
         return None
 
-# --- GPT出力クリーン ---
+
 def clean_gpt_json(raw_text: str) -> str:
     cleaned = raw_text.strip()
     if cleaned.startswith("```json"):
@@ -60,7 +60,7 @@ def clean_gpt_json(raw_text: str) -> str:
         cleaned = cleaned[:-3]
     return cleaned.strip()
 
-# --- 質問生成ボタン ---
+
 if st.button("Generate Questions"):
     generate_questions.clear()
 
@@ -90,7 +90,7 @@ if st.button("Generate Questions"):
         cleaned_text = clean_gpt_json(result_text)
         try:
             questions = json.loads(cleaned_text)
-            # --- 過去の全問題と照合してユニーク化 ---
+           
             unique_questions = []
             for q in questions:
                 q_text = q.get("question", "").strip()
@@ -111,14 +111,14 @@ if st.button("Generate Questions"):
             st.text(f"GPT output:\n{result_text}")
             st.text(f"Error details: {e}")
 
-# --- セット表示・削除ボタン ---
+
 if st.session_state["question_sets"]:
     st.markdown("## Generated Quizzes")
     st.markdown("---")
     
     for set_idx, qset in enumerate(st.session_state["question_sets"], start=1):
         st.subheader(f"📚 Set {set_idx} - {qset['subject']}: {qset['topic']} ({qset['type']})")
-        # 削除ボタンにユニークキーを付ける
+        
         if st.button(f"Delete Set {set_idx}", key=f"delete_{set_idx}"):
             st.session_state["question_sets"].pop(set_idx-1)
             st.experimental_rerun()
@@ -139,5 +139,6 @@ if st.session_state["question_sets"]:
                     st.markdown(f"**📝 Model Answer:** {q.get('model_answer', 'N/A')}")
 else:
     st.info("Use the sidebar to select your subject and topic, then click 'Generate Questions'.")
+
 
 
